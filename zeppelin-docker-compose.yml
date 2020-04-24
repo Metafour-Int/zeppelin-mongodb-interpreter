@@ -1,0 +1,71 @@
+# docker stack deploy -c docker-compose.yml zeppeline-mongo
+version: '3.5'
+
+networks:
+    cluster:
+        driver: overlay
+        driver_opts:
+            encrypted: 1
+        ipam:
+            driver: default
+            config:
+            - subnet: 10.245.30.0/24
+
+volumes:
+    logs:
+      driver: lvm
+      driver_opts:
+        size: "5G"
+        thinpool: "volumes"
+    notebook:
+      driver: lvm
+      driver_opts:
+        size: "1G"
+        thinpool: "volumes"
+        
+x-logging: &default-logging
+    options:
+        max-size: '10m'
+        
+services:
+  mongo-service:
+    image: '013263306916.dkr.ecr.eu-west-2.amazonaws.com/metafour/zeppelin-mongodb-interpreter:latest'
+    command: "/zeppelin/bin/zeppelin.sh"
+    logging: *default-logging
+    
+    deploy:
+      replicas: 1
+      endpoint_mode: dnsrr
+    
+      placement:
+        constraints:
+          - node.labels.subnet == private
+          - node.labels.zeppeline == true
+    
+      restart_policy:
+        condition: on-failure
+        max_attempts: 1
+    
+    environment:
+      ZEPPELIN_LOG_DIR: /logs
+      ZEPPELIN_NOTEBOOK_DIR: /notebook
+      ZEPPELIN_ADDR: 0.0.0.0
+      
+    ports:
+      - target: 7070
+        published: 7070
+        protocol: tcp
+        mode: host
+        
+    volumes:
+        - notebook:/notebook
+        - logs:/logs        
+        - conf/interpreter.json:/zeppelin/conf/interpreter.json
+        
+            
+    hostname: zeppeline-mongo
+    
+    networks:
+      cluster:
+        aliases:
+          - zeppeline-mongo
