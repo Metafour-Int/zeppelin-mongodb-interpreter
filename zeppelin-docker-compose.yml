@@ -69,3 +69,5 @@ services:
       cluster:
         aliases:
           - zeppeline-mongo
+          
+    
